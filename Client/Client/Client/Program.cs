@@ -1,67 +1,57 @@
-﻿// SocketClient.cs
-using System;
-using System.Text;
-using System.Net;
+﻿using System;
 using System.Net.Sockets;
+using System.Text;
 
-namespace SocketClient
+namespace ConsoleClient
 {
     class Program
     {
+        const int port = 8888;
+        const string address = "127.0.0.1";
         static void Main(string[] args)
         {
+            Console.Write("Введите свое имя:");
+            string userName = Console.ReadLine();
+            TcpClient client = null;
             try
             {
-                SendMessageFromSocket(11000);
+                client = new TcpClient(address, port);
+                NetworkStream stream = client.GetStream();
+
+                while (true)
+                {
+                    Console.Write(userName + ": ");
+                    // ввод сообщения
+                    string message = Console.ReadLine();
+                    message = String.Format("{0}: {1}", userName, message);
+                    // преобразуем сообщение в массив байтов
+                    byte[] data = Encoding.Unicode.GetBytes(message);
+                    // отправка сообщения
+                    stream.Write(data, 0, data.Length);
+
+                    // получаем ответ
+                    data = new byte[64]; // буфер для получаемых данных
+                    StringBuilder builder = new StringBuilder();
+                    int bytes = 0;
+                    do
+                    {
+                        bytes = stream.Read(data, 0, data.Length);
+                        builder.Append(Encoding.Unicode.GetString(data, 0, bytes));
+                    }
+                    while (stream.DataAvailable);
+
+                    message = builder.ToString();
+                    Console.WriteLine("Сервер: {0}", message);
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
+                Console.WriteLine(ex.Message);
             }
             finally
             {
-                Console.ReadLine();
+                client.Close();
             }
-        }
-
-        static void SendMessageFromSocket(int port)
-        {
-            // Буфер для входящих данных
-            byte[] bytes = new byte[1024];
-
-            // Соединяемся с удаленным устройством
-
-            // Устанавливаем удаленную точку для сокета
-            IPHostEntry ipHost = Dns.GetHostEntry("localhost");
-            IPAddress ipAddr = ipHost.AddressList[0];
-            IPEndPoint ipEndPoint = new IPEndPoint(ipAddr, port);
-
-            Socket sender = new Socket(ipAddr.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-
-            // Соединяем сокет с удаленной точкой
-            sender.Connect(ipEndPoint);
-
-            Console.Write("Введите сообщение: ");
-            string message = Console.ReadLine();
-
-            Console.WriteLine("Сокет соединяется с {0} ", sender.RemoteEndPoint.ToString());
-            byte[] msg = Encoding.UTF8.GetBytes(message);
-
-            // Отправляем данные через сокет
-            int bytesSent = sender.Send(msg);
-
-            // Получаем ответ от сервера
-            int bytesRec = sender.Receive(bytes);
-
-            Console.WriteLine("\nОтвет от сервера: {0}\n\n", Encoding.UTF8.GetString(bytes, 0, bytesRec));
-
-            // Используем рекурсию для неоднократного вызова SendMessageFromSocket()
-            if (message.IndexOf("<TheEnd>") == -1)
-                SendMessageFromSocket(port);
-
-            // Освобождаем сокет
-            sender.Shutdown(SocketShutdown.Both);
-            sender.Close();
         }
     }
 }
