@@ -1,6 +1,9 @@
-﻿using System;
+﻿using Client;
+using System;
+using System.IO;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 
 namespace ConsoleClient
 {
@@ -8,6 +11,8 @@ namespace ConsoleClient
     {
         const int port = 8888;
         const string address = "127.0.0.1";
+        public static NetworkStream stream;
+        public static object locker = new object();
         static void Main(string[] args)
         {
             Console.Write("Введите свое имя:");
@@ -16,33 +21,23 @@ namespace ConsoleClient
             try
             {
                 client = new TcpClient(address, port);
-                NetworkStream stream = client.GetStream();
+                stream = client.GetStream();
 
-                while (true)
-                {
-                    Console.Write(userName + ": ");
-                    // ввод сообщения
-                    string message = Console.ReadLine();
-                    message = String.Format("{0}: {1}", userName, message);
-                    // преобразуем сообщение в массив байтов
-                    byte[] data = Encoding.Unicode.GetBytes(message);
-                    // отправка сообщения
-                    stream.Write(data, 0, data.Length);
+                Send sendserv = new Send();
+                Thread send = new Thread(sendserv.SendServ);
+                send.Name = "send";
+                send.Start();
+                send.IsBackground = false;
 
-                    // получаем ответ
-                    data = new byte[64]; // буфер для получаемых данных
-                    StringBuilder builder = new StringBuilder();
-                    int bytes = 0;
-                    do
-                    {
-                        bytes = stream.Read(data, 0, data.Length);
-                        builder.Append(Encoding.Unicode.GetString(data, 0, bytes));
-                    }
-                    while (stream.DataAvailable);
+                Getting getserv = new Getting();
+                Thread getting = new Thread(getserv.GetServer);
+                getting.Name = "Getting";
+                getting.Start();
+                getting.IsBackground = false;
 
-                    message = builder.ToString();
-                    Console.WriteLine("Сервер: {0}", message);
-                }
+                //AppDomain.CurrentDomain.UnhandledException += ()=>Console.WriteLine("fdfd");
+                for (;;);
+             
             }
             catch (Exception ex)
             {
